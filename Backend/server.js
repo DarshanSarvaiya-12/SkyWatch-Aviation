@@ -10,12 +10,12 @@ app.use(cors());
 function httpsGet(url, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { 'User-Agent': 'SkyWatch/1.0' } }, (res) => {
-      console.log('OpenSky response status:', res.statusCode);
+      console.log('Response status:', res.statusCode, 'from:', url);
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         if (res.statusCode !== 200) {
-          return reject(new Error(`OpenSky returned ${res.statusCode}: ${data}`));
+          return reject(new Error(`API returned ${res.statusCode}: ${data.slice(0, 200)}`));
         }
         try { resolve(JSON.parse(data)); }
         catch (e) { reject(new Error('Invalid JSON: ' + data.slice(0, 100))); }
@@ -34,48 +34,41 @@ app.get('/', (req, res) => {
   res.json({ status: 'SkyWatch backend running' });
 });
 
-// Nearby flights
+// Nearby flights — radius in km, converted to nautical miles for adsb.lol
 app.get('/flights', async (req, res) => {
-  console.log('Query received:', req.query);
-
   const { lat, lon, radius } = req.query;
 
   if (!lat || !lon || !radius) {
-    console.log('Missing params — lat:', lat, 'lon:', lon, 'radius:', radius);
     return res.status(400).json({ error: 'lat, lon, radius are required' });
   }
 
-  const deg   = parseFloat(radius) / 111;
-  const lamin = parseFloat(lat) - deg;
-  const lamax = parseFloat(lat) + deg;
-  const lomin = parseFloat(lon) - deg;
-  const lomax = parseFloat(lon) + deg;
-
-  const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  console.log('Calling OpenSky:', url);
+  // adsb.lol takes radius in nautical miles (1 km = 0.539957 nm)
+  const radiusNm = Math.round(parseFloat(radius) * 0.539957);
+  const url = `https://api.adsb.lol/v2/point/${lat}/${lon}/${radiusNm}`;
+  console.log('Calling adsb.lol:', url);
 
   try {
     const data = await httpsGet(url);
-    const count = data.states ? data.states.length : 0;
-    console.log('Success — aircraft count:', count);
+    const count = data.ac ? data.ac.length : 0;
+    console.log('Success — aircraft:', count);
     res.json(data);
   } catch (err) {
-    console.error('OpenSky error:', err.message);
-    res.status(500).json({ error: 'Failed to reach OpenSky', detail: err.message });
+    console.error('Error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch flights', detail: err.message });
   }
 });
 
-// World view
+// World view — adsb.lol doesn't have a global endpoint, use a large radius from center
 app.get('/flights/world', async (req, res) => {
-  console.log('World view requested');
+  // Use mil-world endpoint for global coverage
+  const url = 'https://api.adsb.lol/v2/mil';
+  console.log('World view via adsb.lol');
   try {
-    const data = await httpsGet('https://opensky-network.org/api/states/all');
-    const count = data.states ? data.states.length : 0;
-    console.log('World success — aircraft count:', count);
+    const data = await httpsGet(url);
     res.json(data);
   } catch (err) {
-    console.error('OpenSky error:', err.message);
-    res.status(500).json({ error: 'Failed to reach OpenSky', detail: err.message });
+    console.error('Error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch world flights', detail: err.message });
   }
 });
 
