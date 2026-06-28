@@ -8,352 +8,98 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg: #0a0e1a;
-    --surface: #111827;
-    --surface2: #1a2236;
-    --border: rgba(99,179,255,0.12);
-    --accent: #38bdf8;
-    --accent2: #818cf8;
-    --text: #e2e8f0;
-    --muted: #64748b;
-    --danger: #f87171;
-    --success: #34d399;
-    --warn: #fbbf24;
+    --bg: #0a0e1a; --surface: #111827; --surface2: #1a2236;
+    --border: rgba(99,179,255,0.12); --accent: #38bdf8; --accent2: #818cf8;
+    --text: #e2e8f0; --muted: #64748b; --danger: #f87171;
+    --success: #34d399; --warn: #fbbf24;
   }
+  body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-  body {
-    font-family: 'Space Grotesk', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    gap: 12px;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    white-space: nowrap;
-  }
-
+  header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 12px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
   .logo-icon { font-size: 1.4rem; filter: drop-shadow(0 0 8px var(--accent)); }
   .logo span { color: var(--accent); }
-
-  .header-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--muted);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 4px 12px;
-  }
-
-  .dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-  }
+  .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .status-pill { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
   .dot.live { background: var(--success); animation: pulse 1.5s infinite; }
   .dot.loading { background: var(--warn); animation: pulse 0.6s infinite; }
   .dot.error { background: var(--danger); }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  .btn {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.8rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    padding: 7px 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .btn { font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem; font-weight: 600; border: none; border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .btn-primary { background: var(--accent); color: #0a0e1a; }
   .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
   .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
   .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-
   .main { display: flex; flex: 1; overflow: hidden; }
-
   #map { flex: 1; background: #0d1117; }
-
-  .sidebar {
-    width: 320px;
-    background: var(--surface);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    flex-shrink: 0;
-    transition: width 0.3s;
-  }
-
+  .sidebar { width: 320px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; transition: width 0.3s; }
   .sidebar.collapsed { width: 0; overflow: hidden; }
-
-  .sidebar-header {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .sidebar-title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .count-badge {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    background: var(--accent);
-    color: #0a0e1a;
-    border-radius: 4px;
-    padding: 2px 7px;
-    font-weight: 600;
-  }
-
+  .sidebar-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-title { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .count-badge { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: var(--accent); color: #0a0e1a; border-radius: 4px; padding: 2px 7px; font-weight: 600; }
   .search-bar { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-
-  .search-bar input {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.85rem;
-    padding: 7px 10px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
+  .search-bar input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; padding: 7px 10px; outline: none; transition: border-color 0.2s; }
   .search-bar input::placeholder { color: var(--muted); }
   .search-bar input:focus { border-color: var(--accent); }
-
-  .flight-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
+  .flight-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
   .flight-list::-webkit-scrollbar { width: 4px; }
   .flight-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-  .flight-item {
-    background: var(--surface2);
-    border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 10px 12px;
-    cursor: pointer;
-    transition: all 0.15s;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
+  .flight-item { background: var(--surface2); border: 1px solid transparent; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 10px; }
   .flight-item:hover, .flight-item.active { border-color: var(--accent); background: rgba(56,189,248,0.06); }
   .flight-item.active { background: rgba(56,189,248,0.12); }
-
   .flight-meta { flex: 1; min-width: 0; }
-
-  .flight-callsign {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--accent);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .flight-country { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .flight-callsign { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 500; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flight-sub { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
   .flight-speed { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--warn); text-align: right; flex-shrink: 0; }
   .flight-alt { font-size: 0.68rem; color: var(--muted); text-align: right; margin-top: 1px; }
-
-  .detail-panel {
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-  }
-
-  .detail-panel.open { max-height: 320px; }
+  .detail-panel { background: var(--surface); border-top: 1px solid var(--border); max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .detail-panel.open { max-height: 340px; overflow-y: auto; }
   .detail-inner { padding: 16px; }
-
-  .detail-callsign {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--accent);
-    margin-bottom: 2px;
-  }
-
-  .detail-country { font-size: 0.8rem; color: var(--muted); margin-bottom: 14px; }
-
+  .detail-callsign { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+  .detail-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 14px; }
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
   .detail-cell { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
-
-  .detail-cell-label {
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 4px;
-  }
-
+  .detail-cell-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
   .detail-cell-value { font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 500; }
-
-  .val-speed { color: var(--warn); }
-  .val-alt { color: var(--accent2); }
-  .val-heading { color: var(--accent); }
-  .val-status { color: var(--success); }
-  .val-vrate-pos { color: var(--success); }
-  .val-vrate-neg { color: var(--danger); }
-
-  .mode-bar {
-    padding: 10px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-
-  .mode-btn {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 0.78rem;
-    font-weight: 600;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--muted);
-    border-radius: 6px;
-    padding: 5px 12px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
+  .val-speed { color: var(--warn); } .val-alt { color: var(--accent2); } .val-heading { color: var(--accent); }
+  .val-status { color: var(--success); } .val-up { color: var(--success); } .val-down { color: var(--danger); }
+  .mode-bar { padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap; }
+  .mode-btn { font-family: 'Space Grotesk', sans-serif; font-size: 0.78rem; font-weight: 600; border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 6px; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
   .mode-btn.active { background: var(--accent); color: #0a0e1a; border-color: var(--accent); }
-
   .radius-control { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--muted); }
   .radius-control input[type=range] { accent-color: var(--accent); width: 80px; }
   .radius-val { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent); width: 44px; }
-
-  .empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 24px;
-    gap: 8px;
-    color: var(--muted);
-  }
-
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 8px; color: var(--muted); }
   .empty-icon { font-size: 2.5rem; }
   .empty-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
   .empty-sub { font-size: 0.78rem; line-height: 1.5; }
-
-  .leaflet-popup-content-wrapper {
-    background: var(--surface2) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
-    color: var(--text) !important;
-    font-family: 'Space Grotesk', sans-serif !important;
-  }
-
+  .leaflet-popup-content-wrapper { background: var(--surface2) !important; border: 1px solid var(--border) !important; border-radius: 10px !important; box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important; color: var(--text) !important; font-family: 'Space Grotesk', sans-serif !important; }
   .leaflet-popup-tip { background: var(--surface2) !important; }
-  .leaflet-popup-close-button { color: var(--muted) !important; font-size: 16px !important; }
-
   .popup-callsign { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
-
-  .popup-row {
-    font-size: 0.8rem;
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 3px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-  }
-
+  .popup-row { font-size: 0.8rem; display: flex; justify-content: space-between; gap: 16px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
   .popup-row:last-child { border-bottom: none; }
   .popup-label { color: var(--muted); }
   .popup-val { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
-
-  .timer-ring { width: 20px; height: 20px; position: relative; flex-shrink: 0; }
+  .timer-ring { width: 20px; height: 20px; flex-shrink: 0; }
   .timer-ring svg { transform: rotate(-90deg); }
   .timer-ring circle { fill: none; stroke: var(--border); stroke-width: 2.5; }
   .timer-ring .progress { stroke: var(--accent); stroke-dasharray: 50.27; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
-
   .toggle-sidebar { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; color: var(--text); font-size: 0.8rem; cursor: pointer; flex-shrink: 0; }
-
   @media (max-width: 640px) {
     .sidebar { position: fixed; right: 0; top: 0; bottom: 0; z-index: 1000; width: 280px; box-shadow: -8px 0 32px rgba(0,0,0,0.6); }
     .sidebar.collapsed { width: 0; }
-    .radius-control label { display: none; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    <span class="logo-icon">✈</span>
-    Sky<span>Watch</span>
-  </div>
+  <div class="logo"><span class="logo-icon">✈</span>Sky<span>Watch</span></div>
   <div class="header-controls">
-    <div class="timer-ring" title="Next refresh">
+    <div class="timer-ring">
       <svg width="20" height="20" viewBox="0 0 20 20">
         <circle cx="10" cy="10" r="8"/>
         <circle class="progress" id="timerRing" cx="10" cy="10" r="8"/>
@@ -376,21 +122,20 @@
     <input type="range" id="radiusSlider" min="50" max="500" value="150" step="25">
     <span class="radius-val" id="radiusVal">150 km</span>
   </div>
-  <span style="font-size:0.72rem; color:var(--muted); margin-left:auto;">
-    Data: <a href="https://opensky-network.org" target="_blank" style="color:var(--accent); text-decoration:none;">OpenSky Network</a>
+  <span style="font-size:0.72rem;color:var(--muted);margin-left:auto;">
+    Data: <a href="https://adsb.lol" target="_blank" style="color:var(--accent);text-decoration:none;">adsb.lol</a>
   </span>
 </div>
 
 <div class="main">
   <div id="map"></div>
-
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <span class="sidebar-title">Live Flights</span>
       <span class="count-badge" id="flightCount">0</span>
     </div>
     <div class="search-bar">
-      <input type="text" id="searchInput" placeholder="Search callsign or country…">
+      <input type="text" id="searchInput" placeholder="Search callsign or type…">
     </div>
     <div id="flightListContainer" class="flight-list">
       <div class="empty-state">
@@ -406,47 +151,64 @@
 </div>
 
 <script>
-  // ── CONFIG ──────────────────────────────────────────────────────────
-  const BACKEND = 'https://skywatch-aviation.onrender.com';
+  const BACKEND     = 'https://skywatch-aviation.onrender.com';
   const REFRESH_SEC = 20;
   const CIRCUMFERENCE = 50.27;
 
-  // ── MAP ─────────────────────────────────────────────────────────────
+  // MAP
   const map = L.map('map', { center: [20.5937, 78.9629], zoom: 6, zoomControl: true, attributionControl: false });
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
   L.control.attribution({ prefix: false, position: 'bottomleft' })
-    .addAttribution('© <a href="https://carto.com">CartoDB</a> | <a href="https://opensky-network.org">OpenSky</a>')
+    .addAttribution('© <a href="https://carto.com">CartoDB</a> | <a href="https://adsb.lol">adsb.lol</a>')
     .addTo(map);
 
-  // ── STATE ───────────────────────────────────────────────────────────
+  // STATE
   let flights = [], markers = {}, activeIcao = null;
   let userMarker = null, radiusCircle = null;
   let userLat = null, userLon = null;
   let mode = 'nearby', radius = 150;
   let refreshInterval = null, timerCount = 0;
 
-  // ── UI REFS ─────────────────────────────────────────────────────────
-  const statusDot      = document.getElementById('statusDot');
-  const statusText     = document.getElementById('statusText');
-  const flightCount    = document.getElementById('flightCount');
-  const listContainer  = document.getElementById('flightListContainer');
-  const searchInput    = document.getElementById('searchInput');
-  const detailPanel    = document.getElementById('detailPanel');
-  const detailInner    = document.getElementById('detailInner');
-  const timerRing      = document.getElementById('timerRing');
-  const radiusSlider   = document.getElementById('radiusSlider');
-  const radiusVal      = document.getElementById('radiusVal');
-  const sidebar        = document.getElementById('sidebar');
+  // UI REFS
+  const statusDot     = document.getElementById('statusDot');
+  const statusText    = document.getElementById('statusText');
+  const flightCount   = document.getElementById('flightCount');
+  const listContainer = document.getElementById('flightListContainer');
+  const searchInput   = document.getElementById('searchInput');
+  const detailPanel   = document.getElementById('detailPanel');
+  const detailInner   = document.getElementById('detailInner');
+  const timerRing     = document.getElementById('timerRing');
+  const radiusSlider  = document.getElementById('radiusSlider');
+  const radiusVal     = document.getElementById('radiusVal');
+  const sidebar       = document.getElementById('sidebar');
 
-  // ── HELPERS ─────────────────────────────────────────────────────────
-  const setStatus = (state, text) => { statusDot.className = 'dot ' + state; statusText.textContent = text; };
-  const mps2kmh  = v  => v  != null ? Math.round(v * 3.6)    : null;
-  const m2km     = m  => m  != null ? (m / 1000).toFixed(1)  : null;
+  // HELPERS
+  const setStatus  = (state, text) => { statusDot.className = 'dot ' + state; statusText.textContent = text; };
+  const kt2kmh     = v => v != null ? Math.round(v * 1.852)   : null;  // knots → km/h
+  const ft2km      = f => f != null ? (f * 0.0003048).toFixed(1) : null;  // feet → km
   const compassDir = h => { if (h == null) return '—'; return ['N','NE','E','SE','S','SW','W','NW'][Math.round(h/45)%8]; };
 
-  // ── PLANE ICON ───────────────────────────────────────────────────────
+  // adsb.lol field mapping
+  function parseAircraft(ac) {
+    return {
+      icao24:        ac.hex || '',
+      callsign:      (ac.flight || ac.r || ac.hex || '').trim(),
+      type:          ac.t || '—',
+      lat:           ac.lat,
+      lon:           ac.lon,
+      alt_ft:        ac.alt_baro || ac.alt_geom || null,   // feet
+      on_ground:     ac.alt_baro === 'ground',
+      velocity_kt:   ac.gs   || null,                       // knots
+      heading:       ac.track || null,
+      vert_rate_fpm: ac.baro_rate || null,                  // ft/min
+      squawk:        ac.squawk || null,
+      emergency:     ac.emergency || null,
+    };
+  }
+
+  // PLANE ICON
   function makePlaneIcon(heading, isActive) {
-    const h = heading ?? 0;
+    const h     = heading ?? 0;
     const color = isActive ? '#38bdf8' : '#94a3b8';
     const glow  = isActive ? 'filter:drop-shadow(0 0 4px #38bdf8);' : '';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" style="transform:rotate(${h}deg);${glow}">
@@ -455,10 +217,9 @@
     return L.divIcon({ html: svg, className: '', iconSize: [28,28], iconAnchor: [14,14] });
   }
 
-  // ── FETCH ────────────────────────────────────────────────────────────
+  // FETCH
   async function fetchFlights() {
     setStatus('loading', 'Fetching…');
-
     let url;
     if (mode === 'world') {
       url = `${BACKEND}/flights/world`;
@@ -470,24 +231,20 @@
     }
 
     try {
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+
       if (!res.ok) throw new Error('Backend error ' + res.status);
       const data = await res.json();
 
-      const states = (data.states || []).filter(s => s[5] && s[6] && !s[8]);
-
-      flights = states.map(s => ({
-        icao24:        s[0],
-        callsign:      (s[1] || '').trim() || s[0].toUpperCase(),
-        country:       s[2] || '—',
-        lon:           s[5],
-        lat:           s[6],
-        baro_alt:      s[7],
-        on_ground:     s[8],
-        velocity:      s[9],
-        heading:       s[10],
-        vertical_rate: s[11],
-      }));
+      // adsb.lol returns { ac: [...] }
+      const raw = data.ac || [];
+      flights = raw
+        .filter(ac => ac.lat && ac.lon)
+        .map(parseAircraft)
+        .filter(f => !f.on_ground);
 
       setStatus('live', `${flights.length} aircraft`);
       renderMarkers();
@@ -495,12 +252,16 @@
       resetTimer();
 
     } catch (e) {
-      setStatus('error', 'Fetch failed');
+      if (e.name === 'AbortError') {
+        setStatus('error', 'Request timed out');
+      } else {
+        setStatus('error', 'Fetch failed');
+      }
       console.error(e);
     }
   }
 
-  // ── MARKERS ──────────────────────────────────────────────────────────
+  // MARKERS
   function renderMarkers() {
     Object.values(markers).forEach(m => map.removeLayer(m));
     markers = {};
@@ -511,12 +272,12 @@
     });
   }
 
-  // ── LIST ─────────────────────────────────────────────────────────────
+  // LIST
   function renderList() {
     const q = searchInput.value.toLowerCase();
     const filtered = flights
-      .filter(f => f.callsign.toLowerCase().includes(q) || f.country.toLowerCase().includes(q))
-      .sort((a, b) => (b.velocity || 0) - (a.velocity || 0));
+      .filter(f => f.callsign.toLowerCase().includes(q) || f.type.toLowerCase().includes(q))
+      .sort((a, b) => (b.velocity_kt || 0) - (a.velocity_kt || 0));
 
     flightCount.textContent = filtered.length;
 
@@ -527,25 +288,27 @@
 
     listContainer.innerHTML = '';
     filtered.forEach(f => {
+      const kmh = kt2kmh(f.velocity_kt);
+      const altKm = ft2km(f.alt_ft);
       const div = document.createElement('div');
       div.className = 'flight-item' + (f.icao24 === activeIcao ? ' active' : '');
       div.dataset.icao = f.icao24;
       div.innerHTML = `
         <span style="font-size:1.2rem;transform:rotate(${f.heading??0}deg);display:inline-block;">✈</span>
         <div class="flight-meta">
-          <div class="flight-callsign">${f.callsign}</div>
-          <div class="flight-country">${f.country}</div>
+          <div class="flight-callsign">${f.callsign || f.icao24}</div>
+          <div class="flight-sub">${f.type !== '—' ? f.type : 'Unknown type'}</div>
         </div>
         <div>
-          <div class="flight-speed">${mps2kmh(f.velocity) ? mps2kmh(f.velocity)+' km/h' : '—'}</div>
-          <div class="flight-alt">${m2km(f.baro_alt) ? m2km(f.baro_alt)+' km' : '—'}</div>
+          <div class="flight-speed">${kmh ? kmh+' km/h' : '—'}</div>
+          <div class="flight-alt">${altKm ? altKm+' km' : '—'}</div>
         </div>`;
       div.addEventListener('click', () => selectFlight(f.icao24));
       listContainer.appendChild(div);
     });
   }
 
-  // ── SELECT ───────────────────────────────────────────────────────────
+  // SELECT FLIGHT
   function selectFlight(icao) {
     if (activeIcao && activeIcao !== icao) {
       const prev = flights.find(f => f.icao24 === activeIcao);
@@ -559,7 +322,6 @@
     if (!f) return;
 
     if (markers[icao]) markers[icao].setIcon(makePlaneIcon(f.heading, true));
-
     const el = listContainer.querySelector(`[data-icao="${icao}"]`);
     if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 
@@ -567,13 +329,13 @@
     showDetail(f);
 
     if (markers[icao]) {
-      const kmh   = mps2kmh(f.velocity);
-      const altKm = m2km(f.baro_alt);
-      const vrate = f.vertical_rate != null ? Math.round(f.vertical_rate) : null;
-      const vrStr = vrate != null ? (vrate >= 0 ? `↑ ${vrate} m/s` : `↓ ${Math.abs(vrate)} m/s`) : '—';
+      const kmh   = kt2kmh(f.velocity_kt);
+      const altKm = ft2km(f.alt_ft);
+      const vfpm  = f.vert_rate_fpm;
+      const vrStr = vfpm != null ? (vfpm >= 0 ? `↑ ${Math.round(vfpm)} ft/min` : `↓ ${Math.abs(Math.round(vfpm))} ft/min`) : '—';
       markers[icao].bindPopup(`
-        <div class="popup-callsign">${f.callsign}</div>
-        <div class="popup-row"><span class="popup-label">Country</span><span class="popup-val">${f.country}</span></div>
+        <div class="popup-callsign">${f.callsign || f.icao24}</div>
+        <div class="popup-row"><span class="popup-label">Type</span><span class="popup-val">${f.type}</span></div>
         <div class="popup-row"><span class="popup-label">Speed</span><span class="popup-val">${kmh ? kmh+' km/h' : '—'}</span></div>
         <div class="popup-row"><span class="popup-label">Altitude</span><span class="popup-val">${altKm ? altKm+' km' : '—'}</span></div>
         <div class="popup-row"><span class="popup-label">Heading</span><span class="popup-val">${f.heading != null ? Math.round(f.heading)+'° '+compassDir(f.heading) : '—'}</span></div>
@@ -584,27 +346,27 @@
   }
 
   function showDetail(f) {
-    const kmh   = mps2kmh(f.velocity);
-    const altKm = m2km(f.baro_alt);
-    const vrate = f.vertical_rate != null ? Math.round(f.vertical_rate) : null;
-    const vrClass = vrate == null ? '' : vrate >= 0 ? 'val-vrate-pos' : 'val-vrate-neg';
-    const vrStr   = vrate != null ? (vrate >= 0 ? `↑ ${vrate} m/s` : `↓ ${Math.abs(vrate)} m/s`) : '—';
+    const kmh   = kt2kmh(f.velocity_kt);
+    const altKm = ft2km(f.alt_ft);
+    const vfpm  = f.vert_rate_fpm;
+    const vrClass = vfpm == null ? '' : vfpm >= 0 ? 'val-up' : 'val-down';
+    const vrStr   = vfpm != null ? (vfpm >= 0 ? `↑ ${Math.round(vfpm)} ft/min` : `↓ ${Math.abs(Math.round(vfpm))} ft/min`) : '—';
 
     detailInner.innerHTML = `
-      <div class="detail-callsign">${f.callsign}</div>
-      <div class="detail-country">${f.country} &nbsp;·&nbsp; ICAO: ${f.icao24.toUpperCase()}</div>
+      <div class="detail-callsign">${f.callsign || f.icao24}</div>
+      <div class="detail-sub">Type: ${f.type} &nbsp;·&nbsp; ICAO: ${f.icao24.toUpperCase()}</div>
       <div class="detail-grid">
         <div class="detail-cell"><div class="detail-cell-label">Speed</div><div class="detail-cell-value val-speed">${kmh ? kmh+' km/h' : '—'}</div></div>
         <div class="detail-cell"><div class="detail-cell-label">Altitude</div><div class="detail-cell-value val-alt">${altKm ? altKm+' km' : '—'}</div></div>
         <div class="detail-cell"><div class="detail-cell-label">Heading</div><div class="detail-cell-value val-heading">${f.heading != null ? Math.round(f.heading)+'° '+compassDir(f.heading) : '—'}</div></div>
         <div class="detail-cell"><div class="detail-cell-label">Vertical Rate</div><div class="detail-cell-value ${vrClass}">${vrStr}</div></div>
-        <div class="detail-cell"><div class="detail-cell-label">Position</div><div class="detail-cell-value" style="font-size:0.75rem;color:var(--muted)">${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}</div></div>
-        <div class="detail-cell"><div class="detail-cell-label">Status</div><div class="detail-cell-value val-status">Airborne</div></div>
+        <div class="detail-cell"><div class="detail-cell-label">Position</div><div class="detail-cell-value" style="font-size:0.72rem;color:var(--muted)">${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}</div></div>
+        <div class="detail-cell"><div class="detail-cell-label">Squawk</div><div class="detail-cell-value val-heading">${f.squawk || '—'}</div></div>
       </div>`;
     detailPanel.classList.add('open');
   }
 
-  // ── GEOLOCATION ──────────────────────────────────────────────────────
+  // GEOLOCATION
   function locateUser() {
     if (!navigator.geolocation) { setStatus('error', 'Geolocation unavailable'); return; }
     setStatus('loading', 'Locating…');
@@ -631,9 +393,8 @@
     }).addTo(map);
   }
 
-  // ── AUTO REFRESH ─────────────────────────────────────────────────────
+  // AUTO REFRESH
   function resetTimer() { timerCount = 0; timerRing.style.strokeDashoffset = '0'; }
-
   function startAutoRefresh() {
     if (refreshInterval) clearInterval(refreshInterval);
     refreshInterval = setInterval(() => {
@@ -643,7 +404,7 @@
     }, 1000);
   }
 
-  // ── EVENTS ───────────────────────────────────────────────────────────
+  // EVENTS
   document.getElementById('locateBtn').addEventListener('click', locateUser);
 
   document.getElementById('modeNearby').addEventListener('click', () => {
