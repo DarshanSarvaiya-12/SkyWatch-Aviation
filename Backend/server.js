@@ -1,11 +1,25 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
+const https = require('https');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+
+// Helper — wraps https.get in a Promise
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'SkyWatch/1.0' } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error('Invalid JSON from OpenSky')); }
+      });
+    }).on('error', reject);
+  });
+}
 
 // Health check — for UptimeRobot
 app.get('/', (req, res) => {
@@ -29,8 +43,8 @@ app.get('/flights', async (req, res) => {
   const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
 
   try {
-    const response = await axios.get(url, { timeout: 15000 });
-    res.json(response.data);
+    const data = await httpsGet(url);
+    res.json(data);
   } catch (err) {
     console.error('OpenSky error:', err.message);
     res.status(500).json({ error: 'Failed to reach OpenSky', detail: err.message });
@@ -40,8 +54,8 @@ app.get('/flights', async (req, res) => {
 // World view
 app.get('/flights/world', async (req, res) => {
   try {
-    const response = await axios.get('https://opensky-network.org/api/states/all', { timeout: 20000 });
-    res.json(response.data);
+    const data = await httpsGet('https://opensky-network.org/api/states/all');
+    res.json(data);
   } catch (err) {
     console.error('OpenSky error:', err.message);
     res.status(500).json({ error: 'Failed to reach OpenSky', detail: err.message });
