@@ -7,17 +7,25 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// Helper — wraps https.get in a Promise
-function httpsGet(url) {
+// Helper — wraps https.get in a Promise with timeout
+function httpsGet(url, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'SkyWatch/1.0' } }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'SkyWatch/1.0' } }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try { resolve(JSON.parse(data)); }
         catch (e) { reject(new Error('Invalid JSON from OpenSky')); }
       });
-    }).on('error', reject);
+    });
+
+    req.on('error', reject);
+
+    // Kill request if OpenSky doesn't respond in time
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      reject(new Error('OpenSky request timed out after ' + timeoutMs + 'ms'));
+    });
   });
 }
 
