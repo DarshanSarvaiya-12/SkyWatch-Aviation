@@ -7,34 +7,56 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-function httpsGet(url, timeoutMs = 10000) {
+// OpenSky credentials from Render environment
+const OPENSKY_CLIENT_ID = process.env.OPENSKY_CLIENT_ID || '';
+const OPENSKY_CLIENT_SECRET = process.env.OPENSKY_CLIENT_SECRET || '';
+
+// Build Basic Auth header
+function getAuthHeader() {
+  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) {
+    console.warn('Warning: OpenSky credentials not set');
+    return {};
+  }
+  const credentials = Buffer.from(`${OPENSKY_CLIENT_ID}:${OPENSKY_CLIENT_SECRET}`).toString('base64');
+  return { 'Authorization': `Basic ${credentials}` };
+}
+
+// Helper — wraps https.get in a Promise with timeout
+function httpsGet(url, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'SkyWatch/1.0' } }, (res) => {
-      console.log('Response status:', res.statusCode, 'from:', url);
+    const headers = {
+      'User-Agent': 'SkyWatch/1.0',
+      ...getAuthHeader()
+    };
+
+    const req = https.get(url, { headers }, (res) => {
+      console.log('OpenSky response status:', res.statusCode);
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         if (res.statusCode !== 200) {
-          return reject(new Error(`API returned ${res.statusCode}: ${data.slice(0, 200)}`));
+          return reject(new Error(`OpenSky returned ${res.statusCode}: ${data.slice(0, 200)}`));
         }
         try { resolve(JSON.parse(data)); }
         catch (e) { reject(new Error('Invalid JSON: ' + data.slice(0, 100))); }
       });
     });
+
     req.on('error', reject);
+
     req.setTimeout(timeoutMs, () => {
       req.destroy();
-      reject(new Error('Timed out after ' + timeoutMs + 'ms'));
+      reject(new Error('OpenSky timed out after ' + timeoutMs + 'ms'));
     });
   });
 }
 
 // Health check
 app.get('/', (req, res) => {
-  res.json({ status: 'SkyWatch backend running' });
+  res.json({ status: 'SkyWatch backend running', auth: OPENSKY_CLIENT_ID ? 'enabled' : 'disabled' });
 });
 
-// Nearby flights — radius in km, converted to nautical miles for adsb.lol
+// Nearby flights
 app.get('/flights', async (req, res) => {
   const { lat, lon, radius } = req.query;
 
@@ -42,36 +64,42 @@ app.get('/flights', async (req, res) => {
     return res.status(400).json({ error: 'lat, lon, radius are required' });
   }
 
-  // adsb.lol takes radius in nautical miles (1 km = 0.539957 nm)
-  const radiusNm = Math.round(parseFloat(radius) * 0.539957);
-  const url = `https://api.adsb.lol/v2/point/${lat}/${lon}/${radiusNm}`;
-  console.log('Calling adsb.lol:', url);
+  const deg   = parseFloat(radius) / 111;
+  const lamin = parseFloat(lat) - deg;
+  const lamax = parseFloat(lat) + deg;
+  const lomin = parseFloat(lon) - deg;
+  const lomax = parseFloat(lon) + deg;
+
+  const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
+  console.log('Calling OpenSky:', url);
 
   try {
     const data = await httpsGet(url);
-    const count = data.ac ? data.ac.length : 0;
-    console.log('Success — aircraft:', count);
+    const count = data.states ? data.states.length : 0;
+    console.log('Success — aircraft count:', count);
     res.json(data);
   } catch (err) {
-    console.error('Error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch flights', detail: err.message });
+    console.error('OpenSky error:', err.message);
+    res.status(500).json({ error: 'Failed to reach OpenSky', detail: err.message });
   }
 });
 
-// World view — adsb.lol doesn't have a global endpoint, use a large radius from center
+// World view
 app.get('/flights/world', async (req, res) => {
-  // Use mil-world endpoint for global coverage
-  const url = 'https://api.adsb.lol/v2/mil';
-  console.log('World view via adsb.lol');
+  const url = 'https://opensky-network.org/api/states/all';
+  console.log('World view via OpenSky');
   try {
-    const data = await httpsGet(url);
+    const data = await httpsGet(url, 20000);
+    const count = data.states ? data.states.length : 0;
+    console.log('World success — aircraft count:', count);
     res.json(data);
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error('OpenSky error:', err.message);
     res.status(500).json({ error: 'Failed to fetch world flights', detail: err.message });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`SkyWatch backend running on port ${PORT}`);
+  console.log('OpenSky auth:', OPENSKY_CLIENT_ID ? 'enabled' : 'disabled');
 });
