@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,7 +12,7 @@ app.get('/', (req, res) => {
   res.json({ status: 'SkyWatch backend running' });
 });
 
-// Flights proxy route
+// Nearby flights
 app.get('/flights', async (req, res) => {
   const { lat, lon, radius } = req.query;
 
@@ -19,7 +20,7 @@ app.get('/flights', async (req, res) => {
     return res.status(400).json({ error: 'lat, lon, radius are required' });
   }
 
-  const deg = parseFloat(radius) / 111;
+  const deg   = parseFloat(radius) / 111;
   const lamin = parseFloat(lat) - deg;
   const lamax = parseFloat(lat) + deg;
   const lomin = parseFloat(lon) - deg;
@@ -28,36 +29,22 @@ app.get('/flights', async (req, res) => {
   const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
 
   try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'OpenSky error', code: response.status });
-    }
-
-    const data = await response.json();
-    res.json(data);
-
+    const response = await axios.get(url, { timeout: 15000 });
+    res.json(response.data);
   } catch (err) {
-    console.error('Fetch error:', err.message);
-    res.status(500).json({ error: 'Failed to reach OpenSky' });
+    console.error('OpenSky error:', err.message);
+    res.status(500).json({ error: 'Failed to reach OpenSky', detail: err.message });
   }
 });
 
-// World view — no bounding box
+// World view
 app.get('/flights/world', async (req, res) => {
   try {
-    const response = await fetch('https://opensky-network.org/api/states/all');
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'OpenSky error', code: response.status });
-    }
-
-    const data = await response.json();
-    res.json(data);
-
+    const response = await axios.get('https://opensky-network.org/api/states/all', { timeout: 20000 });
+    res.json(response.data);
   } catch (err) {
-    console.error('Fetch error:', err.message);
-    res.status(500).json({ error: 'Failed to reach OpenSky' });
+    console.error('OpenSky error:', err.message);
+    res.status(500).json({ error: 'Failed to reach OpenSky', detail: err.message });
   }
 });
 
