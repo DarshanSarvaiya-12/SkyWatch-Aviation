@@ -52,14 +52,14 @@
   .flight-item.active { background: rgba(56,189,248,0.12); }
   .flight-meta { flex: 1; min-width: 0; }
   .flight-callsign { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 500; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .flight-sub { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .flight-country { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
   .flight-speed { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--warn); text-align: right; flex-shrink: 0; }
   .flight-alt { font-size: 0.68rem; color: var(--muted); text-align: right; margin-top: 1px; }
   .detail-panel { background: var(--surface); border-top: 1px solid var(--border); max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
   .detail-panel.open { max-height: 340px; overflow-y: auto; }
   .detail-inner { padding: 16px; }
   .detail-callsign { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
-  .detail-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 14px; }
+  .detail-country { font-size: 0.8rem; color: var(--muted); margin-bottom: 14px; }
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .detail-cell { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
   .detail-cell-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
@@ -123,7 +123,7 @@
     <span class="radius-val" id="radiusVal">150 km</span>
   </div>
   <span style="font-size:0.72rem;color:var(--muted);margin-left:auto;">
-    Data: <a href="https://adsb.lol" target="_blank" style="color:var(--accent);text-decoration:none;">adsb.lol</a>
+    Data: <a href="https://opensky-network.org" target="_blank" style="color:var(--accent);text-decoration:none;">OpenSky Network</a>
   </span>
 </div>
 
@@ -135,7 +135,7 @@
       <span class="count-badge" id="flightCount">0</span>
     </div>
     <div class="search-bar">
-      <input type="text" id="searchInput" placeholder="Search callsign or type…">
+      <input type="text" id="searchInput" placeholder="Search callsign or country…">
     </div>
     <div id="flightListContainer" class="flight-list">
       <div class="empty-state">
@@ -159,7 +159,7 @@
   const map = L.map('map', { center: [20.5937, 78.9629], zoom: 6, zoomControl: true, attributionControl: false });
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
   L.control.attribution({ prefix: false, position: 'bottomleft' })
-    .addAttribution('© <a href="https://carto.com">CartoDB</a> | <a href="https://adsb.lol">adsb.lol</a>')
+    .addAttribution('© <a href="https://carto.com">CartoDB</a> | <a href="https://opensky-network.org">OpenSky</a>')
     .addTo(map);
 
   // STATE
@@ -184,27 +184,9 @@
 
   // HELPERS
   const setStatus  = (state, text) => { statusDot.className = 'dot ' + state; statusText.textContent = text; };
-  const kt2kmh     = v => v != null ? Math.round(v * 1.852)   : null;  // knots → km/h
-  const ft2km      = f => f != null ? (f * 0.0003048).toFixed(1) : null;  // feet → km
+  const mps2kmh    = v => v != null ? Math.round(v * 3.6)   : null;
+  const m2km       = m => m != null ? (m / 1000).toFixed(1) : null;
   const compassDir = h => { if (h == null) return '—'; return ['N','NE','E','SE','S','SW','W','NW'][Math.round(h/45)%8]; };
-
-  // adsb.lol field mapping
-  function parseAircraft(ac) {
-    return {
-      icao24:        ac.hex || '',
-      callsign:      (ac.flight || ac.r || ac.hex || '').trim(),
-      type:          ac.t || '—',
-      lat:           ac.lat,
-      lon:           ac.lon,
-      alt_ft:        ac.alt_baro || ac.alt_geom || null,   // feet
-      on_ground:     ac.alt_baro === 'ground',
-      velocity_kt:   ac.gs   || null,                       // knots
-      heading:       ac.track || null,
-      vert_rate_fpm: ac.baro_rate || null,                  // ft/min
-      squawk:        ac.squawk || null,
-      emergency:     ac.emergency || null,
-    };
-  }
 
   // PLANE ICON
   function makePlaneIcon(heading, isActive) {
@@ -232,19 +214,28 @@
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 20000);
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);
 
       if (!res.ok) throw new Error('Backend error ' + res.status);
       const data = await res.json();
 
-      // adsb.lol returns { ac: [...] }
-      const raw = data.ac || [];
-      flights = raw
-        .filter(ac => ac.lat && ac.lon)
-        .map(parseAircraft)
-        .filter(f => !f.on_ground);
+      // OpenSky returns { states: [...] }
+      const states = (data.states || []).filter(s => s[5] != null && s[6] != null && !s[8]);
+
+      flights = states.map(s => ({
+        icao24:        s[0],
+        callsign:      (s[1] || '').trim() || s[0].toUpperCase(),
+        country:       s[2] || '—',
+        lon:           s[5],
+        lat:           s[6],
+        baro_alt:      s[7],
+        on_ground:     s[8],
+        velocity:      s[9],
+        heading:       s[10],
+        vertical_rate: s[11],
+      }));
 
       setStatus('live', `${flights.length} aircraft`);
       renderMarkers();
@@ -276,8 +267,8 @@
   function renderList() {
     const q = searchInput.value.toLowerCase();
     const filtered = flights
-      .filter(f => f.callsign.toLowerCase().includes(q) || f.type.toLowerCase().includes(q))
-      .sort((a, b) => (b.velocity_kt || 0) - (a.velocity_kt || 0));
+      .filter(f => f.callsign.toLowerCase().includes(q) || f.country.toLowerCase().includes(q))
+      .sort((a, b) => (b.velocity || 0) - (a.velocity || 0));
 
     flightCount.textContent = filtered.length;
 
@@ -288,16 +279,16 @@
 
     listContainer.innerHTML = '';
     filtered.forEach(f => {
-      const kmh = kt2kmh(f.velocity_kt);
-      const altKm = ft2km(f.alt_ft);
+      const kmh = mps2kmh(f.velocity);
+      const altKm = m2km(f.baro_alt);
       const div = document.createElement('div');
       div.className = 'flight-item' + (f.icao24 === activeIcao ? ' active' : '');
       div.dataset.icao = f.icao24;
       div.innerHTML = `
         <span style="font-size:1.2rem;transform:rotate(${f.heading??0}deg);display:inline-block;">✈</span>
         <div class="flight-meta">
-          <div class="flight-callsign">${f.callsign || f.icao24}</div>
-          <div class="flight-sub">${f.type !== '—' ? f.type : 'Unknown type'}</div>
+          <div class="flight-callsign">${f.callsign}</div>
+          <div class="flight-country">${f.country}</div>
         </div>
         <div>
           <div class="flight-speed">${kmh ? kmh+' km/h' : '—'}</div>
@@ -329,13 +320,13 @@
     showDetail(f);
 
     if (markers[icao]) {
-      const kmh   = kt2kmh(f.velocity_kt);
-      const altKm = ft2km(f.alt_ft);
-      const vfpm  = f.vert_rate_fpm;
-      const vrStr = vfpm != null ? (vfpm >= 0 ? `↑ ${Math.round(vfpm)} ft/min` : `↓ ${Math.abs(Math.round(vfpm))} ft/min`) : '—';
+      const kmh   = mps2kmh(f.velocity);
+      const altKm = m2km(f.baro_alt);
+      const vrate = f.vertical_rate != null ? Math.round(f.vertical_rate) : null;
+      const vrStr = vrate != null ? (vrate >= 0 ? `↑ ${vrate} m/s` : `↓ ${Math.abs(vrate)} m/s`) : '—';
       markers[icao].bindPopup(`
-        <div class="popup-callsign">${f.callsign || f.icao24}</div>
-        <div class="popup-row"><span class="popup-label">Type</span><span class="popup-val">${f.type}</span></div>
+        <div class="popup-callsign">${f.callsign}</div>
+        <div class="popup-row"><span class="popup-label">Country</span><span class="popup-val">${f.country}</span></div>
         <div class="popup-row"><span class="popup-label">Speed</span><span class="popup-val">${kmh ? kmh+' km/h' : '—'}</span></div>
         <div class="popup-row"><span class="popup-label">Altitude</span><span class="popup-val">${altKm ? altKm+' km' : '—'}</span></div>
         <div class="popup-row"><span class="popup-label">Heading</span><span class="popup-val">${f.heading != null ? Math.round(f.heading)+'° '+compassDir(f.heading) : '—'}</span></div>
@@ -346,22 +337,22 @@
   }
 
   function showDetail(f) {
-    const kmh   = kt2kmh(f.velocity_kt);
-    const altKm = ft2km(f.alt_ft);
-    const vfpm  = f.vert_rate_fpm;
-    const vrClass = vfpm == null ? '' : vfpm >= 0 ? 'val-up' : 'val-down';
-    const vrStr   = vfpm != null ? (vfpm >= 0 ? `↑ ${Math.round(vfpm)} ft/min` : `↓ ${Math.abs(Math.round(vfpm))} ft/min`) : '—';
+    const kmh   = mps2kmh(f.velocity);
+    const altKm = m2km(f.baro_alt);
+    const vrate = f.vertical_rate != null ? Math.round(f.vertical_rate) : null;
+    const vrClass = vrate == null ? '' : vrate >= 0 ? 'val-up' : 'val-down';
+    const vrStr   = vrate != null ? (vrate >= 0 ? `↑ ${vrate} m/s` : `↓ ${Math.abs(vrate)} m/s`) : '—';
 
     detailInner.innerHTML = `
-      <div class="detail-callsign">${f.callsign || f.icao24}</div>
-      <div class="detail-sub">Type: ${f.type} &nbsp;·&nbsp; ICAO: ${f.icao24.toUpperCase()}</div>
+      <div class="detail-callsign">${f.callsign}</div>
+      <div class="detail-country">${f.country} &nbsp;·&nbsp; ICAO: ${f.icao24.toUpperCase()}</div>
       <div class="detail-grid">
         <div class="detail-cell"><div class="detail-cell-label">Speed</div><div class="detail-cell-value val-speed">${kmh ? kmh+' km/h' : '—'}</div></div>
         <div class="detail-cell"><div class="detail-cell-label">Altitude</div><div class="detail-cell-value val-alt">${altKm ? altKm+' km' : '—'}</div></div>
         <div class="detail-cell"><div class="detail-cell-label">Heading</div><div class="detail-cell-value val-heading">${f.heading != null ? Math.round(f.heading)+'° '+compassDir(f.heading) : '—'}</div></div>
         <div class="detail-cell"><div class="detail-cell-label">Vertical Rate</div><div class="detail-cell-value ${vrClass}">${vrStr}</div></div>
-        <div class="detail-cell"><div class="detail-cell-label">Position</div><div class="detail-cell-value" style="font-size:0.72rem;color:var(--muted)">${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}</div></div>
-        <div class="detail-cell"><div class="detail-cell-label">Squawk</div><div class="detail-cell-value val-heading">${f.squawk || '—'}</div></div>
+        <div class="detail-cell"><div class="detail-cell-label">Position</div><div class="detail-cell-value" style="font-size:0.75rem;color:var(--muted)">${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}</div></div>
+        <div class="detail-cell"><div class="detail-cell-label">Status</div><div class="detail-cell-value val-status">Airborne</div></div>
       </div>`;
     detailPanel.classList.add('open');
   }
